@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one narrow column. Headline total, then bid | ask split, then book stats and a log of recent readings. */
+/* Layout: one narrow column. Headline total, bid | ask split, liquidity by address, book stats, log of recent readings. */
 :root {
   --bg: #f6f7f9;
   --panel: #ffffff;
@@ -18,6 +18,7 @@
   --bid: #0f7b52;
   --ask: #c0392b;
   --accent: #c76a00;
+  --accent-soft: #fbeedd;
   --warn: #9a6a00;
   --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -33,6 +34,7 @@
     --bid: #3fbf86;
     --ask: #ef6b5b;
     --accent: #f0a040;
+    --accent-soft: #3a2a14;
     --warn: #e0b040;
     color-scheme: dark;
   }
@@ -47,7 +49,10 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.wrap { max-width: 720px; margin: 0 auto; display: grid; gap: 20px; }
+a { color: inherit; text-decoration-color: var(--line); text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--muted); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
 h1 { margin: 0; font-size: 20px; font-weight: 600; text-wrap: balance; }
 h1 small { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 6px; }
@@ -69,7 +74,7 @@ button {
 button:hover { border-color: var(--muted); }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; min-width: 0; }
 .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 
@@ -93,18 +98,34 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .balance .b { background: var(--bid); }
 .balance .a { background: var(--ask); }
 
+.section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 10px; }
+
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 20px; }
 .stats div { display: grid; gap: 2px; min-width: 0; }
 .stats .v { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 15px; }
 
 .err { color: var(--ask); font-size: 13px; }
-.log-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
 th:first-child, td:first-child { text-align: left; }
 th { font-weight: 500; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-footer { font-size: 12px; color: var(--muted); }
+td .s { display: block; font-size: 12px; color: var(--muted); }
+td.addr { font-family: var(--font-ui); white-space: normal; min-width: 150px; }
+td.addr a { font-family: var(--font-num); }
+tr.other td { color: var(--muted); }
+.chip {
+  display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px;
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid var(--line); color: var(--muted); vertical-align: 1px;
+}
+.chip.new { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.chip.off { color: var(--ask); }
+.share { display: grid; gap: 4px; justify-items: end; }
+.share .bar { width: 64px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.share .bar span { display: block; height: 100%; background: var(--fg); opacity: .55; }
+footer { font-size: 12px; color: var(--muted); display: grid; gap: 6px; }
 footer code { font-family: var(--font-num); word-break: break-all; }
 @media (prefers-reduced-motion: reduce) { .balance span { transition: none; } }
 </style>
@@ -126,7 +147,7 @@ footer code { font-family: var(--font-num); word-break: break-all; }
       <div class="big" id="totBtc">–<span class="unit">BTC</span></div>
       <div class="big" id="totUsd">–<span class="unit">USD</span></div>
     </div>
-    <div class="sub" id="totSub">Fetching the book…</div>
+    <div class="sub" id="totSub">Reading the order book…</div>
     <div class="err" id="err" hidden></div>
   </section>
 
@@ -147,6 +168,19 @@ footer code { font-family: var(--font-num); word-break: break-all; }
 
   <div class="balance" aria-hidden="true"><span class="b" id="balB" style="width:50%"></span><span class="a" id="balA" style="width:50%"></span></div>
 
+  <section class="panel">
+    <div class="section-head">
+      <span class="label">By address</span>
+      <span class="sub">Owner of each balance manager with resting orders</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Address</th><th>Bids ±1%</th><th>Asks ±1%</th><th>Share of ±1%</th><th>All orders</th></tr></thead>
+        <tbody id="makers"><tr><td colspan="5" class="sub">Waiting for the first reading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="panel stats">
     <div><span class="label">Mid</span><span class="v" id="mid">–</span></div>
     <div><span class="label">Best bid / ask</span><span class="v" id="bbo">–</span></div>
@@ -156,7 +190,7 @@ footer code { font-family: var(--font-num); word-break: break-all; }
 
   <section class="panel">
     <span class="label">Recent readings (since this page opened)</span>
-    <div class="log-wrap">
+    <div class="table-wrap">
       <table>
         <thead><tr><th>Time</th><th>Mid</th><th>Bid BTC</th><th>Ask BTC</th><th>Total BTC</th><th>Total USD</th></tr></thead>
         <tbody id="log"></tbody>
@@ -165,55 +199,252 @@ footer code { font-family: var(--font-num); word-break: break-all; }
   </section>
 
   <footer>
-    Refreshes every 60 seconds from <code id="src"></code>.
-    Mid = (best bid + best ask) / 2. USD = Σ price × size over every level priced within 1% of mid (bids ≥ mid × 0.99, asks ≤ mid × 1.01), with USDC counted as $1.
+    <span>Refreshes every 15 minutes, or on Refresh now. Reads the pool's resting orders straight from Sui mainnet (<code>graphql.mainnet.sui.io</code>), pool <code id="poolId"></code>. Expired orders are left out, so the levels match the indexer's <code>/orderbook/HBTC_USDC</code>.</span>
+    <span>Mid = (best bid + best ask) / 2. USD = Σ price × remaining size over every order priced within 1% of mid (bids ≥ mid × 0.99, asks ≤ mid × 1.01), with USDC counted as $1.</span>
+    <span>Known makers are listed even when they have nothing on the book. Any other address with at least $1,000 inside the band gets its own row marked New. Smaller ones are grouped under Other addresses.</span>
   </footer>
 </div>
 
 <script>
 (() => {
-  const SRC = "https://deepbook-indexer.mainnet.mystenlabs.com/orderbook/HBTC_USDC?level=2&depth=0";
+  const GQL = "https://graphql.mainnet.sui.io/graphql";
+  const POOL_ID = "0x61368ab907934d7840d2e639b7fc2ee74785ffe3d46427d70e1ab8545f320c9b";
+  const BASE_SCALE = 1e8;   // hBTC has 8 decimals
+  const PRICE_DIV = 1e7;    // raw price / 1e9 (float scaling) × 10^(8 − 6) decimals
   const BAND = 0.01;
-  const EVERY_MS = 60_000;
-  const STALE_MS = 3 * EVERY_MS;
+  const EVERY_MS = 15 * 60_000;
+  const STALE_MS = 2 * EVERY_MS;
   const LOG_MAX = 30;
+  const NEW_MIN_USD = 1000;
+  const EXPLORER = "https://suiscan.xyz/mainnet/account/";
+
+  // Owner address -> display name. Leave the name empty to show the short address only.
+  const KNOWN_MAKERS = {
+    "0xffd4f043057226453aeba59732d41c6093516f54823ebc3a16d17f8a77d2f0ad": "",
+    "0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3": "",
+  };
 
   const $ = (id) => document.getElementById(id);
-  $("src").textContent = SRC;
+  $("poolId").textContent = POOL_ID;
 
   const fmtBtc = (x) => x.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   const fmtUsd = (x) => "$" + x.toLocaleString("en-US", { maximumFractionDigits: 0 });
   const fmtPx = (x) => "$" + x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtTime = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 
-  let lastOk = 0;
-  let nextAt = 0;
-  let timer = null;
-  let inFlight = false;
-
-  function setPill(kind, text) {
-    const p = $("pill");
-    p.className = "pill " + kind;
-    p.textContent = text;
+  async function gql(query) {
+    const res = await fetch(GQL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query }), cache: "no-store" });
+    if (!res.ok) throw new Error(`Sui GraphQL answered HTTP ${res.status}.`);
+    const body = await res.json();
+    if (body.errors && body.errors.length) throw new Error("Sui GraphQL: " + body.errors[0].message);
+    return body.data;
   }
 
-  function sum(levels) {
-    let btc = 0, usd = 0;
-    for (const [p, q] of levels) { btc += q; usd += p * q; }
-    return { btc, usd, n: levels.length };
+  // The bid and ask BigVector ids live inside the pool's versioned inner object. They never change, so resolve them once.
+  let bookIds = null;
+  async function resolveBookIds() {
+    const p = await gql(`{ object(address: "${POOL_ID}") { asMoveObject { contents { json } } } }`);
+    const innerId = p.object.asMoveObject.contents.json.inner.id;
+    const inner = await gql(`{ address(address: "${innerId}") { dynamicFields(first: 1) { nodes { value { ... on MoveValue { json } } } } } }`);
+    const book = inner.address.dynamicFields.nodes[0].value.json.book;
+    return { bids: book.bids.id, asks: book.asks.id };
   }
 
-  function compute(book) {
-    const parse = (rows) => rows.map(([p, q]) => [Number(p), Number(q)]).filter(([p, q]) => p > 0 && q > 0);
-    const bids = parse(book.bids || []).sort((a, b) => b[0] - a[0]);
-    const asks = parse(book.asks || []).sort((a, b) => a[0] - b[0]);
+  const SLICE_FIELDS = `pageInfo { hasNextPage endCursor } nodes { value { ... on MoveValue { type { repr } json } } }`;
+  const sideQuery = (alias, id, after) =>
+    `${alias}: address(address: "${id}") { dynamicFields(first: 50${after ? `, after: "${after}"` : ""}) { ${SLICE_FIELDS} } }`;
+
+  function collect(side, nodes, out) {
+    for (const n of nodes) {
+      if (!n.value || !n.value.type.repr.endsWith("::order::Order>")) continue; // inner BigVector nodes hold slice ids, not orders
+      for (const o of n.value.json.vals) out.push({ side, ...o });
+    }
+  }
+
+  async function fetchOrders() {
+    if (!bookIds) bookIds = await resolveBookIds();
+    const d = await gql(`{ checkpoint { sequenceNumber timestamp } ${sideQuery("bids", bookIds.bids)} ${sideQuery("asks", bookIds.asks)} }`);
+    const raw = [];
+    for (const side of ["bids", "asks"]) {
+      let page = d[side].dynamicFields;
+      collect(side, page.nodes, raw);
+      while (page.pageInfo.hasNextPage) {
+        const next = await gql(`{ ${sideQuery("s", bookIds[side], page.pageInfo.endCursor)} }`);
+        page = next.s.dynamicFields;
+        collect(side, page.nodes, raw);
+      }
+    }
+    return { raw, checkpoint: d.checkpoint };
+  }
+
+  // Balance manager owners never change, so cache them for the life of the page.
+  const ownerOf = new Map();
+  async function resolveOwners(bmIds) {
+    const missing = bmIds.filter((id) => !ownerOf.has(id));
+    for (let i = 0; i < missing.length; i += 50) {
+      const chunk = missing.slice(i, i + 50);
+      const keys = chunk.map((id) => `{ address: "${id}" }`).join(",");
+      const d = await gql(`{ multiGetObjects(keys: [${keys}]) { address asMoveObject { contents { json } } } }`);
+      const found = new Map();
+      for (const ob of d.multiGetObjects || []) {
+        if (ob && ob.asMoveObject) found.set(ob.address, ob.asMoveObject.contents.json.owner || null);
+      }
+      // A manager wrapped inside another object (for example a margin account) has no readable owner here.
+      for (const id of chunk) ownerOf.set(id, found.get(id) ?? null);
+    }
+  }
+
+  const MASK63 = (1n << 63n) - 1n;
+  function compute(raw, checkpoint) {
+    const nowMs = Date.parse(checkpoint.timestamp) || Date.now();
+    const orders = [];
+    for (const o of raw) {
+      if (Number(o.expire_timestamp) <= nowMs) continue;
+      const price = Number((BigInt(o.order_id) >> 64n) & MASK63) / PRICE_DIV;
+      const size = Number(BigInt(o.quantity) - BigInt(o.filled_quantity)) / BASE_SCALE;
+      if (!(price > 0) || !(size > 0)) continue;
+      orders.push({ side: o.side, price, size, bm: o.balance_manager_id });
+    }
+    const bids = orders.filter((o) => o.side === "bids");
+    const asks = orders.filter((o) => o.side === "asks");
     if (!bids.length || !asks.length) throw new Error("The book has no bids or no asks, so there is no mid price.");
-    const bestBid = bids[0][0], bestAsk = asks[0][0];
+    const bestBid = Math.max(...bids.map((o) => o.price));
+    const bestAsk = Math.min(...asks.map((o) => o.price));
     const mid = (bestBid + bestAsk) / 2;
     const lo = mid * (1 - BAND), hi = mid * (1 + BAND);
-    const b = sum(bids.filter(([p]) => p >= lo));
-    const a = sum(asks.filter(([p]) => p <= hi));
-    return { bestBid, bestAsk, mid, lo, hi, b, a, ts: Number(book.timestamp) || Date.now() };
+    const inBand = (o) => (o.side === "bids" ? o.price >= lo : o.price <= hi);
+
+    const sideSum = (list) => {
+      const levels = new Set();
+      let btc = 0, usd = 0;
+      for (const o of list) if (inBand(o)) { btc += o.size; usd += o.size * o.price; levels.add(o.price); }
+      return { btc, usd, n: levels.size };
+    };
+    return { orders, inBand, bestBid, bestAsk, mid, lo, hi, b: sideSum(bids), a: sideSum(asks), ts: nowMs, checkpoint: checkpoint.sequenceNumber };
+  }
+
+  function byAddress(r) {
+    const rows = new Map();
+    const blank = (key, owner) => ({ key, owner, bms: new Set(), orders: 0, bidBtc: 0, bidUsd: 0, askBtc: 0, askUsd: 0, allBtc: 0, allUsd: 0 });
+    for (const addr of Object.keys(KNOWN_MAKERS)) rows.set(addr, blank(addr, addr));
+    for (const o of r.orders) {
+      const owner = ownerOf.get(o.bm) ?? null;
+      const key = owner || "bm:" + o.bm;
+      if (!rows.has(key)) rows.set(key, blank(key, owner));
+      const row = rows.get(key);
+      row.bms.add(o.bm);
+      row.orders += 1;
+      row.allBtc += o.size;
+      row.allUsd += o.size * o.price;
+      if (r.inBand(o)) {
+        if (o.side === "bids") { row.bidBtc += o.size; row.bidUsd += o.size * o.price; }
+        else { row.askBtc += o.size; row.askUsd += o.size * o.price; }
+      }
+    }
+    const shown = [], other = blank("other", null);
+    other.count = 0;
+    for (const row of rows.values()) {
+      row.bandUsd = row.bidUsd + row.askUsd;
+      row.known = row.owner !== null && Object.prototype.hasOwnProperty.call(KNOWN_MAKERS, row.owner);
+      if (row.known || row.bandUsd >= NEW_MIN_USD) { shown.push(row); continue; }
+      other.count += 1;
+      for (const k of ["orders", "bidBtc", "bidUsd", "askBtc", "askUsd", "allBtc", "allUsd"]) other[k] += row[k];
+    }
+    other.bandUsd = other.bidUsd + other.askUsd;
+    shown.sort((x, y) => y.bandUsd - x.bandUsd || y.allUsd - x.allUsd);
+    return { shown, other };
+  }
+
+  function cell(main, sub) {
+    const td = document.createElement("td");
+    td.append(main);
+    if (sub !== undefined) {
+      const s = document.createElement("span");
+      s.className = "s";
+      s.textContent = sub;
+      td.appendChild(s);
+    }
+    return td;
+  }
+
+  function shareCell(usd, total) {
+    const pct = total > 0 ? (usd / total) * 100 : 0;
+    const td = document.createElement("td");
+    const wrap = document.createElement("div");
+    wrap.className = "share";
+    const t = document.createElement("span");
+    t.textContent = pct.toFixed(1) + "%";
+    const bar = document.createElement("span");
+    bar.className = "bar";
+    const fill = document.createElement("span");
+    fill.style.width = Math.min(100, pct) + "%";
+    bar.appendChild(fill);
+    wrap.append(t, bar);
+    td.appendChild(wrap);
+    return td;
+  }
+
+  function chip(text, cls) {
+    const c = document.createElement("span");
+    c.className = "chip" + (cls ? " " + cls : "");
+    c.textContent = text;
+    return c;
+  }
+
+  function renderMakers(r) {
+    const { shown, other } = byAddress(r);
+    const total = r.b.usd + r.a.usd;
+    const body = $("makers");
+    body.replaceChildren();
+    for (const row of shown) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.className = "addr";
+      if (row.owner) {
+        const a = document.createElement("a");
+        a.href = EXPLORER + row.owner;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.title = row.owner;
+        a.textContent = KNOWN_MAKERS[row.owner] || short(row.owner);
+        td.appendChild(a);
+      } else {
+        td.append("Owner not readable");
+      }
+      if (row.known && row.orders === 0) td.appendChild(chip("No orders", "off"));
+      else if (row.known && row.bandUsd === 0) td.appendChild(chip("Outside band", "off"));
+      if (!row.known) td.appendChild(chip("New", "new"));
+      const s = document.createElement("span");
+      s.className = "s";
+      const nb = row.bms.size;
+      s.textContent = row.orders
+        ? `${row.orders} order${row.orders === 1 ? "" : "s"}` + (nb > 1 ? ` · ${nb} balance managers` : ` · BM ${short([...row.bms][0])}`)
+        : "nothing on the book";
+      td.appendChild(s);
+      tr.append(
+        td,
+        cell(fmtBtc(row.bidBtc), fmtUsd(row.bidUsd)),
+        cell(fmtBtc(row.askBtc), fmtUsd(row.askUsd)),
+        shareCell(row.bandUsd, total),
+        cell(fmtUsd(row.allUsd), fmtBtc(row.allBtc) + " BTC"),
+      );
+      body.appendChild(tr);
+    }
+    if (other.count) {
+      const tr = document.createElement("tr");
+      tr.className = "other";
+      const first = cell(`Other addresses (${other.count})`, `${other.orders} order${other.orders === 1 ? "" : "s"}, each under ${fmtUsd(NEW_MIN_USD)} in band`);
+      first.className = "addr";
+      tr.append(
+        first,
+        cell(fmtBtc(other.bidBtc), fmtUsd(other.bidUsd)),
+        cell(fmtBtc(other.askBtc), fmtUsd(other.askUsd)),
+        shareCell(other.bandUsd, total),
+        cell(fmtUsd(other.allUsd), fmtBtc(other.allBtc) + " BTC"),
+      );
+      body.appendChild(tr);
+    }
   }
 
   function render(r) {
@@ -235,6 +466,8 @@ footer code { font-family: var(--font-num); word-break: break-all; }
     const bps = ((r.bestAsk - r.bestBid) / r.mid) * 1e4;
     $("spread").textContent = `${fmtPx(r.bestAsk - r.bestBid)} (${bps.toFixed(1)} bp)`;
     $("asof").textContent = fmtTime(new Date(r.ts));
+    $("asof").title = "Checkpoint " + r.checkpoint;
+    renderMakers(r);
 
     const tr = document.createElement("tr");
     for (const v of [fmtTime(new Date()), fmtPx(r.mid), fmtBtc(r.b.btc), fmtBtc(r.a.btc), fmtBtc(totBtc), fmtUsd(totUsd)]) {
@@ -247,20 +480,32 @@ footer code { font-family: var(--font-num); word-break: break-all; }
     while (log.children.length > LOG_MAX) log.removeChild(log.lastChild);
   }
 
+  let lastOk = 0;
+  let nextAt = 0;
+  let timer = null;
+  let inFlight = false;
+
+  function setPill(kind, text) {
+    const p = $("pill");
+    p.className = "pill " + kind;
+    p.textContent = text;
+  }
+
   async function load() {
     if (inFlight) return;
     inFlight = true;
     try {
-      const res = await fetch(SRC, { cache: "no-store" });
-      if (!res.ok) throw new Error(`The indexer answered HTTP ${res.status}.`);
-      const r = compute(await res.json());
+      const { raw, checkpoint } = await fetchOrders();
+      const r = compute(raw, checkpoint);
+      await resolveOwners([...new Set(r.orders.map((o) => o.bm))]);
       render(r);
       lastOk = Date.now();
       $("err").hidden = true;
       setPill("live", "Live");
     } catch (e) {
+      bookIds = null; // re-resolve on the next try in case the pool layout moved
       const msg = e instanceof TypeError
-        ? "Could not reach the indexer. Check the network connection. The page will try again at the next refresh."
+        ? "Could not reach Sui mainnet. Check the network connection. The page will try again at the next refresh."
         : e.message;
       $("err").textContent = lastOk ? `Last refresh failed: ${msg} Showing the reading from ${fmtTime(new Date(lastOk))}.` : msg;
       $("err").hidden = false;
@@ -279,7 +524,7 @@ footer code { font-family: var(--font-num); word-break: break-all; }
 
   function tick() {
     const s = Math.max(0, Math.round((nextAt - Date.now()) / 1000));
-    $("countdown").textContent = nextAt ? `next in ${s}s` : "";
+    $("countdown").textContent = nextAt ? `next in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "";
     if (lastOk && Date.now() - lastOk > STALE_MS && $("pill").classList.contains("live")) setPill("stale", "Stale");
   }
 
